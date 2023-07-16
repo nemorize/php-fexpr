@@ -135,6 +135,12 @@ class ParserTest extends TestCase
                 'item' => [ 'left' => [ 'type' => 'identifier', 'literal' => 'demo' ], 'operation' => [ 'type' => 'sign', 'literal' => '=' ], 'right' => [ 'type' => 'text', 'literal' => 'te"st' ] ]
             ]
         ] ],
+        [ 'demo="test0"', false, [
+            [
+                'operation' => [ 'type' => 'join', 'literal' => '&&' ],
+                'item' => [ 'left' => [ 'type' => 'identifier', 'literal' => 'demo' ], 'operation' => [ 'type' => 'sign', 'literal' => '=' ], 'right' => [ 'type' => 'text', 'literal' => 'test0' ] ]
+            ]
+        ] ],
         [ '(a=1)', false, [
             [
                 'operation' => [ 'type' => 'join', 'literal' => '&&' ],

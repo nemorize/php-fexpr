@@ -6,27 +6,22 @@ use Exception;
 
 class Scanner implements ScannerInterface
 {
+    private array $characters = [];
+    private int $position = 0;
+    
     /**
      * @throws Exception
      */
     public function scan (string $text): array
     {
-        $resource = fopen('php://memory', 'r+');
-        fwrite($resource, $text);
-        fseek($resource, 0);
+        $this->characters = str_split($text);
+        $this->position = 0;
 
         $buff = [];
-        try {
-            while ($token = $this->scanToken($resource)) {
-                $buff[] = $token;
-            }
-        }
-        catch (Exception $e) {
-            fclose($resource);
-            throw $e;
+        while ($token = $this->scanToken()) {
+            $buff[] = $token;
         }
 
-        fclose($resource);
         return $buff;
     }
 
@@ -35,40 +30,39 @@ class Scanner implements ScannerInterface
      *
      * @throws Exception
      */
-    private function scanToken (mixed $resource): ?TokenInterface
+    private function scanToken (): ?TokenInterface
     {
-        $ch = $this->read($resource);
-        if (!$ch) {
+        if (($ch = $this->read()) === false) {
             return null;
         }
 
         if ($this->isWhitespaceToken($ch)) {
-            $this->unread($resource);
-            return $this->scanWhitespaceToken($resource);
+            $this->unread();
+            return $this->scanWhitespaceToken();
         }
         if ($this->isGroupStartToken($ch)) {
-            $this->unread($resource);
-            return $this->scanGroupToken($resource);
+            $this->unread();
+            return $this->scanGroupToken();
         }
         if ($this->isIdentifierStartToken($ch)) {
-            $this->unread($resource);
-            return $this->scanIdentifierToken($resource);
+            $this->unread();
+            return $this->scanIdentifierToken();
         }
         if ($this->isNumberStartToken($ch)) {
-            $this->unread($resource);
-            return $this->scanNumberToken($resource);
+            $this->unread();
+            return $this->scanNumberToken();
         }
         if ($this->isTextStartToken($ch)) {
-            $this->unread($resource);
-            return $this->scanTextToken($resource);
+            $this->unread();
+            return $this->scanTextToken();
         }
         if ($this->isSignStartToken($ch)) {
-            $this->unread($resource);
-            return $this->scanSignToken($resource);
+            $this->unread();
+            return $this->scanSignToken();
         }
         if ($this->isJoinStartToken($ch)) {
-            $this->unread($resource);
-            return $this->scanJoinToken($resource);
+            $this->unread();
+            return $this->scanJoinToken();
         }
 
         throw new Exception('Unexpected character: ' . $ch);
@@ -77,15 +71,14 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming whitespaces from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      */
-    private function scanWhitespaceToken (mixed $resource): TokenInterface
+    private function scanWhitespaceToken (): TokenInterface
     {
         $buff = [];
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             if (!$this->isWhitespaceToken($ch)) {
-                $this->unread($resource);
+                $this->unread();
                 break;
             }
             $buff[] = $ch;
@@ -97,23 +90,22 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming group from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      * @throws Exception
      */
-    private function scanGroupToken (mixed $resource): TokenInterface
+    private function scanGroupToken (): TokenInterface
     {
         $buff = [];
         $openGroups = 1;
-        $firstCh = $this->read($resource);
+        $firstCh = $this->read();
 
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             if ($this->isGroupStartToken($ch)) {
                 $openGroups++;
             }
             else if ($this->isTextStartToken($ch)) {
-                $this->unread($resource);
-                $text = $this->scanTextToken($resource);
+                $this->unread();
+                $text = $this->scanTextToken();
                 $buff[] = '"' . $text->getLiteral() . '"';
                 continue;
             }
@@ -135,16 +127,15 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming identifier from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      * @throws Exception
      */
-    private function scanIdentifierToken (mixed $resource): TokenInterface
+    private function scanIdentifierToken (): TokenInterface
     {
         $buff = [];
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             if (!$this->isIdentifierStartToken($ch) && !$this->isDigitToken($ch) && $ch !== '.' && $ch !== ':') {
-                $this->unread($resource);
+                $this->unread();
                 break;
             }
             $buff[] = $ch;
@@ -161,16 +152,15 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming number from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      * @throws Exception
      */
-    private function scanNumberToken (mixed $resource): TokenInterface
+    private function scanNumberToken (): TokenInterface
     {
         $buff = [];
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             if (!$this->isDigitToken($ch) && $ch !== '.') {
-                $this->unread($resource);
+                $this->unread();
                 break;
             }
             $buff[] = $ch;
@@ -186,20 +176,19 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming text from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      * @throws Exception
      */
-    private function scanTextToken (mixed $resource): TokenInterface
+    private function scanTextToken (): TokenInterface
     {
         $buff = [];
         $prevCh = '';
         $hasMatchingQuotes = false;
 
-        $firstCh = $this->read($resource);
+        $firstCh = $this->read();
         $buff[] = $firstCh;
 
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             $buff[] = $ch;
             if ($ch === $firstCh && $prevCh !== '\\') {
                 $hasMatchingQuotes = true;
@@ -222,17 +211,16 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming sign from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      * @throws Exception
      */
-    private function scanSignToken (mixed $resource): TokenInterface
+    private function scanSignToken (): TokenInterface
     {
         $buff = [];
 
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             if (!$this->isSignStartToken($ch)) {
-                $this->unread($resource);
+                $this->unread();
                 break;
             }
             $buff[] = $ch;
@@ -249,17 +237,16 @@ class Scanner implements ScannerInterface
     /**
      * Scan incoming join from the input stream.
      *
-     * @param mixed $resource
      * @return TokenInterface
      * @throws Exception
      */
-    private function scanJoinToken (mixed $resource): TokenInterface
+    private function scanJoinToken (): TokenInterface
     {
         $buff = [];
 
-        while ($ch = $this->read($resource)) {
+        while (($ch = $this->read()) !== false) {
             if (!$this->isJoinStartToken($ch)) {
-                $this->unread($resource);
+                $this->unread();
                 break;
             }
             $buff[] = $ch;
@@ -336,13 +323,13 @@ class Scanner implements ScannerInterface
         return $text === '&&' || $text === '||';
     }
 
-    private function read (mixed $resource): string
+    private function read (): string|false
     {
-        return fread($resource, 1);
+        return $this->characters[$this->position++] ?? false;
     }
 
-    private function unread (mixed $resource): void
+    private function unread (): void
     {
-        fseek($resource, -1, SEEK_CUR);
+        $this->position--;
     }
 }
